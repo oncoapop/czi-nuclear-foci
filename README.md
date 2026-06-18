@@ -95,6 +95,43 @@ Each run writes:
 - `qc_channels/*.png`: single-channel QC views.
 - `qc_contact_sheet.pdf`: review PDF of composite overlays.
 
+## Batch-Aware Thresholds
+
+After one or more segmentation runs, use `batch-summary` to avoid blindly
+applying one pooled cut-off across experiments.
+
+```zsh
+czi-foci batch-summary \
+  --nucleus-csv output/generic_time_series_III/nucleus_measurements.csv \
+  --nucleus-csv output/generic_time_series_IV/nucleus_measurements.csv \
+  --nucleus-csv output/generic_time_series_V/nucleus_measurements.csv \
+  --metric focus_a_count \
+  --metric focus_b_count \
+  --metric colocalized_focus_b_count \
+  --control-condition Aqueous \
+  --control-condition DMSO \
+  --control-condition NAH2PO4 \
+  --control-condition Media \
+  --output-dir output/batch_aware_summary
+```
+
+By default, batches are `experiment + timepoint_hr` when those columns are
+present. You can override this with repeated `--batch-column` arguments.
+
+This command writes:
+
+- `control_stats.csv`: control median and robust standard deviation within each
+  batch.
+- `normalised_nuclei.csv`: per-nucleus metrics with control-normalised z-scores.
+  Formula: `(nucleus value - batch control median) / batch control robust SD`.
+- `raw_best_thresholds_by_batch.csv`: best raw count cut-off per batch.
+- `normalised_best_thresholds_by_batch.csv`: best control-normalised cut-off per
+  batch.
+- `raw_threshold_stability.csv` and `normalised_threshold_stability.csv`: whether
+  the same best cut-off is stable across batches.
+- `effect_sizes.csv`: experiment-normalised condition effects. Use this for
+  biological interpretation when cut-offs are not stable across batches.
+
 ## Current Limitations
 
 - The bundled parser supports uncompressed Gray8 and Gray16 CZI planes. If a CZI
