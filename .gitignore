@@ -1,0 +1,13 @@
+.venv/
+output/
+__pycache__/
+*.pyc
+.DS_Store
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+sample_sheet.csv
+sample_sheet_summary.tsv
+time_series_*_sample_sheet.csv
+time_series_*_sample_sheet_summary.tsv

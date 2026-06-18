@@ -1,0 +1,9 @@
+condition_code,condition,condition_type,is_control
+A,Treatment_1,treatment,FALSE
+B,Treatment_2,treatment,FALSE
+C,Treatment_3,treatment,FALSE
+D,Treatment_4,treatment,FALSE
+E,Control_1,control,TRUE
+F,Control_2,control,TRUE
+G,Vehicle,control,TRUE
+H,Treatment_5,treatment,FALSE
