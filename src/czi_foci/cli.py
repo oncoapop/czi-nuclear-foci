@@ -11,6 +11,8 @@ import pandas as pd
 from .analysis import analyse_files
 from .batch import batch_aware_summary
 from .config import load_config
+from .current_dataset import run_current_dataset_report
+from .current_dataset_plots import write_current_dataset_plots
 from .io import selected_files_from_manifest, selected_files_from_root
 
 
@@ -36,6 +38,42 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument("--batch-column", action="append", default=[], help="Batch column; defaults to experiment and timepoint_hr when present")
     batch.add_argument("--experiment-label", action="append", default=[], help="Optional experiment labels matching --nucleus-csv order")
     batch.add_argument("--overwrite", action="store_true", help="Replace an existing output directory")
+
+    current = subparsers.add_parser("current-dataset-report", help="Report batch-aware thresholds for the existing TS III/IV/V dataset")
+    current.add_argument(
+        "--nucleus-csv",
+        type=Path,
+        default=Path("output/segmentation/all_experiments_dual_channel_summary/combined_nucleus_dual_channel_measurements.csv"),
+        help="Combined mapped nucleus table",
+    )
+    current.add_argument(
+        "--image-csv",
+        type=Path,
+        default=Path("output/segmentation/all_experiments_dual_channel_summary/combined_image_summary_dual_channel.csv"),
+        help="Combined mapped image summary table",
+    )
+    current.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("output/segmentation/batch_aware_current_dataset"),
+        help="Output directory",
+    )
+    current.add_argument("--overwrite", action="store_true", help="Replace an existing output directory")
+    current.add_argument("--no-qc-pdf", action="store_true", help="Skip control QC PDF generation")
+
+    plots = subparsers.add_parser("current-dataset-plots", help="Plot current dataset field summaries in the first-iteration multi-panel format")
+    plots.add_argument(
+        "--field-csv",
+        type=Path,
+        default=Path("output/segmentation/batch_aware_current_dataset/comparison_field_replicates_single_dual_coloc.csv"),
+        help="Field-level comparison table",
+    )
+    plots.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("output/segmentation/batch_aware_current_dataset/plots"),
+        help="Output directory for PNG/PDF plots",
+    )
     return parser
 
 
@@ -79,6 +117,22 @@ def main(argv: list[str] | None = None) -> int:
         for name, table in outputs.items():
             table.to_csv(args.output_dir / f"{name}.csv", index=False)
         print(f"Wrote batch-aware summaries to {args.output_dir}")
+        return 0
+    if args.command == "current-dataset-report":
+        run_current_dataset_report(
+            nucleus_csv=args.nucleus_csv,
+            image_csv=args.image_csv,
+            output_dir=args.output_dir,
+            overwrite=args.overwrite,
+            write_qc=not args.no_qc_pdf,
+        )
+        print(f"Wrote current-dataset batch-aware report to {args.output_dir}")
+        return 0
+    if args.command == "current-dataset-plots":
+        outputs = write_current_dataset_plots(args.field_csv, args.output_dir)
+        print(f"Wrote current-dataset comparison plots to {args.output_dir}")
+        for path in outputs:
+            print(path)
         return 0
     parser.error(f"Unknown command: {args.command}")
     return 2

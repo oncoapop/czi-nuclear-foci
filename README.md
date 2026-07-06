@@ -132,6 +132,18 @@ This command writes:
 - `effect_sizes.csv`: experiment-normalised condition effects. Use this for
   biological interpretation when cut-offs are not stable across batches.
 
+For the existing TS III/IV/V dataset, use the mapped combined tables and
+experiment-only batches:
+
+```zsh
+czi-foci current-dataset-report \
+  --output-dir output/segmentation/batch_aware_current_dataset \
+  --overwrite
+```
+
+This writes experiment-specific raw and control-normalised thresholds, nucleus
+classifications, field and condition summaries, and control-only QC PDFs.
+
 ## Current Limitations
 
 - The bundled parser supports uncompressed Gray8 and Gray16 CZI planes. If a CZI
