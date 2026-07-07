@@ -59,6 +59,7 @@ class AnalysisConfig:
     condition_map_csv: str | None = None
     output: OutputConfig = field(default_factory=OutputConfig)
     mode: str = "2d"
+    z_projection: str = "first"  # Explicitly use the first Z plane in 2D mode
     nucleus_strategy: str = "mip_2d_propagate"
 
 
@@ -89,6 +90,7 @@ def load_config(path: Path) -> AnalysisConfig:
         condition_map_csv=data.get("condition_map_csv"),
         output=output,
         mode=data.get("mode", "2d"),
+        z_projection=data.get("z_projection", "first"),
         nucleus_strategy=data.get("nucleus_strategy", "mip_2d_propagate"),
     )
     re.compile(config.filename.regex)

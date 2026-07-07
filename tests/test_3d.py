@@ -1,4 +1,5 @@
 from __future__ import annotations
+import warnings
 
 import unittest
 import numpy as np
@@ -8,6 +9,7 @@ from czi_foci.colocalization import colocalization_calls_3d
 
 class ThreeDTests(unittest.TestCase):
     def test_3d_segmentation_and_colocalization(self):
+        warnings.filterwarnings('ignore', category=UserWarning)
         # Create small anisotropic synthetic array
         # Z = 5, Y = 64, X = 64
         # px_um_z = 0.5, px_um_y = 0.2, px_um_x = 0.2
@@ -69,11 +71,11 @@ class ThreeDTests(unittest.TestCase):
         # distance squared = (0.4)^2 + (0.4)^2 = 0.16 + 0.16 = 0.32
         # distance = sqrt(0.32) ~ 0.565
 
-        # Distance = 0.6 um -> should colocalize
+        # Distance = 0.9 um -> should colocalize
         b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.9, 0.2, 0.2, 0.5)
         self.assertTrue(1 in coloc_b)
 
-        # Distance = 0.5 um -> should not colocalize
+        # Distance = 0.8 um -> should not colocalize
         b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.8, 0.2, 0.2, 0.5)
         self.assertFalse(1 in coloc_b)
 

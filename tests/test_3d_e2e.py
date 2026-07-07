@@ -1,4 +1,5 @@
 from __future__ import annotations
+import warnings
 
 import unittest
 from pathlib import Path
@@ -17,6 +18,7 @@ class E2E3DTests(unittest.TestCase):
     @patch("czi_foci.analysis.read_channel_arrays")
     @patch("czi_foci.analysis.parse_sample_metadata")
     def test_e2e_analyse_files_3d(self, mock_parse, mock_read, mock_inspect):
+        warnings.filterwarnings('ignore', category=UserWarning)
         # Mock inspection
         mock_inspect.return_value = {
             "metadata": {
