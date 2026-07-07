@@ -172,6 +172,7 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
     focus_b_rows_all: list[dict] = []
     pair_rows_all: list[dict] = []
     overlay_paths: list[Path] = []
+    channel_qc_paths: list[Path] = []
 
 
     for path in files:
@@ -250,10 +251,11 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
             overlap_map=b_to_a,
             area_scale=scale,
         )
+        focus_b_to_nucleus = spot_to_nucleus_labels(focus_b_labels, nuclei_labels)
         pair_rows = [
             {
                 **sample,
-                "nucleus_label": spot_to_nucleus_labels(focus_b_labels, nuclei_labels).get(b_label, 0),
+                "nucleus_label": focus_b_to_nucleus.get(b_label, 0),
                 f"{config.focus_b.name}_label": b_label,
                 f"{config.focus_a.name}_label": a_label,
             }
@@ -288,10 +290,14 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
         save_label_tiff(qc_coloc_b_labels, output_dir / "masks" / f"{sid}_colocalized_{config.focus_b.name}_labels.tif")
         overlay_path = output_dir / "qc_overlays" / f"{sid}_qc_overlay.png"
         save_qc_overlay(qc_nuclear, qc_focus_a, qc_focus_b, qc_nuclei_labels, qc_focus_a_labels, qc_focus_b_labels, qc_coloc_b_labels, overlay_path, config)
-        save_individual_channel_qc(qc_nuclear, qc_nuclei_labels, output_dir / "qc_channels" / f"{sid}_nuclear_qc.png", config.nuclei.label, "nuclei", config)
-        save_individual_channel_qc(qc_focus_a, qc_focus_a_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_a.name}_qc.png", config.focus_a.label, config.focus_a.name, config)
-        save_individual_channel_qc(qc_focus_b, qc_focus_b_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_b.name}_qc.png", config.focus_b.label, config.focus_b.name, config)
+        nuclear_qc_path = output_dir / "qc_channels" / f"{sid}_nuclear_qc.png"
+        focus_a_qc_path = output_dir / "qc_channels" / f"{sid}_{config.focus_a.name}_qc.png"
+        focus_b_qc_path = output_dir / "qc_channels" / f"{sid}_{config.focus_b.name}_qc.png"
+        save_individual_channel_qc(qc_nuclear, qc_nuclei_labels, nuclear_qc_path, config.nuclei.label, "nuclei", config, sid)
+        save_individual_channel_qc(qc_focus_a, qc_focus_a_labels, focus_a_qc_path, config.focus_a.label, config.focus_a.name, config, sid)
+        save_individual_channel_qc(qc_focus_b, qc_focus_b_labels, focus_b_qc_path, config.focus_b.label, config.focus_b.name, config, sid)
         overlay_paths.append(overlay_path)
+        channel_qc_paths.extend([nuclear_qc_path, focus_a_qc_path, focus_b_qc_path])
 
 
         image_rows.append(_image_summary(sample, inspection, nucleus_rows, focus_a_rows, focus_b_rows, pair_rows, nuclei_diag, focus_a_diag, focus_b_diag, config))
@@ -311,6 +317,12 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
     write_csv(output_dir / f"{config.focus_b.name}_measurements.csv", focus_b_rows_all)
     write_csv(output_dir / "colocalized_focus_pairs.csv", pair_rows_all)
     make_qc_pdf(output_dir / "qc_contact_sheet.pdf", overlay_paths, qc_title)
+    make_qc_pdf(
+        output_dir / "qc_channels_contact_sheet.pdf",
+        channel_qc_paths,
+        f"{qc_title}: single-channel segmentation QC",
+        "Single-channel QC: greyscale channel intensity with red segmentation boundaries.",
+    )
 
     if nucleus_rows_all:
         nuclei = pd.DataFrame(nucleus_rows_all)

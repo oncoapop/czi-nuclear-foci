@@ -181,6 +181,8 @@ Each run writes:
 - `qc_overlays/*.png`: composite QC overlays.
 - `qc_channels/*.png`: single-channel QC views.
 - `qc_contact_sheet.pdf`: review PDF of composite overlays.
+- `qc_channels_contact_sheet.pdf`: review PDF of single-channel segmentation
+  QC images.
 
 In 3D mode, measurement CSVs include Z/Y/X centroid columns and voxel-size
 columns:

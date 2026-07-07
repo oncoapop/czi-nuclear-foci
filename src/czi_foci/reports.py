@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,18 @@ from skimage import segmentation
 
 from .config import AnalysisConfig
 from .segmentation import display_u8
+
+
+def _short_qc_label(path: Path) -> str:
+    stem = path.stem
+    stem = stem.replace("TRF2_yH2AX_coloc_3D_firstpass_dateUNK_hr_", "")
+    stem = stem.replace("conditionUNK_", "")
+    stem = stem.replace("_qc_overlay", " composite")
+    stem = stem.replace("_nuclear_qc", " DAPI/nuclei")
+    stem = stem.replace("_FITC_TRF2_candidate_qc", " FITC/TRF2")
+    stem = stem.replace("_RhReX_gH2AX_candidate_qc", " RhReX/gH2AX")
+    stem = re.sub(r"_+", " ", stem)
+    return stem[:58]
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -82,6 +95,7 @@ def save_individual_channel_qc(
     channel_label: str,
     boundary_label: str,
     config: AnalysisConfig,
+    sample_label: str | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -91,12 +105,15 @@ def save_individual_channel_qc(
     rgb[segmentation.find_boundaries(labels, mode="outer")] = np.array([255, 0, 0], dtype=np.uint8)
     rendered = Image.fromarray(rgb, mode="RGB")
     draw = ImageDraw.Draw(rendered)
-    draw.rectangle((5, 5, 520, 40), fill=(0, 0, 0))
-    draw.text((12, 14), f"{channel_label}; red boundary={boundary_label}", fill=(255, 255, 255))
+    draw.rectangle((5, 5, min(rendered.width - 5, 860), 84), fill=(0, 0, 0))
+    if sample_label:
+        draw.text((12, 12), f"Sample: {sample_label}", fill=(255, 255, 255))
+    draw.text((12, 34), f"Channel/marker: {channel_label}", fill=(255, 255, 255))
+    draw.text((12, 56), f"Red boundary: {boundary_label} segmentation; mode={config.mode}", fill=(255, 255, 255))
     rendered.save(path)
 
 
-def make_qc_pdf(path: Path, overlay_paths: list[Path], title: str) -> None:
+def make_qc_pdf(path: Path, overlay_paths: list[Path], title: str, subtitle: str | None = None) -> None:
     if path.exists():
         raise FileExistsError(f"Refusing to overwrite {path}")
     width, height = landscape(A4)
@@ -108,7 +125,11 @@ def make_qc_pdf(path: Path, overlay_paths: list[Path], title: str) -> None:
         pdf.setFont("Helvetica-Bold", 14)
         pdf.drawString(36, height - 32, title)
         pdf.setFont("Helvetica", 8)
-        pdf.drawString(36, height - 46, "Composite QC: nuclear channel plus two focus channels and co-localised focus boundary.")
+        pdf.drawString(
+            36,
+            height - 46,
+            subtitle or "Composite QC: nuclear channel plus two focus channels and co-localised focus boundary.",
+        )
         pdf.drawRightString(width - 36, height - 46, f"Page {page_start // per_page + 1}")
         for index, overlay in enumerate(page_paths):
             col = index % 4
@@ -116,7 +137,7 @@ def make_qc_pdf(path: Path, overlay_paths: list[Path], title: str) -> None:
             x = 36 + col * 198
             y = height - 70 - row * 216 - thumb_h
             pdf.drawImage(ImageReader(str(overlay)), x, y, thumb_w, thumb_h, preserveAspectRatio=True, anchor="c")
-            pdf.drawString(x, y - 11, overlay.stem.replace("_qc_overlay", ""))
+            pdf.drawString(x, y - 11, _short_qc_label(overlay))
         pdf.showPage()
     pdf.save()
 

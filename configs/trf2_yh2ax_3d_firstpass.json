@@ -1,0 +1,46 @@
+{
+  "experiment_name": "TRF2_yH2AX_coloc_3D_firstpass",
+  "nuclei": {
+    "channel_index": 2,
+    "label": "DAPI-T3",
+    "gaussian_sigma_px": 1.2,
+    "min_area_um2": 35.0,
+    "hole_area_um2": 20.0,
+    "watershed_min_distance_px": 10
+  },
+  "focus_a": {
+    "name": "FITC_TRF2_candidate",
+    "channel_index": 1,
+    "label": "FITC-T2",
+    "tophat_radius_px": 4,
+    "min_area_px": 3,
+    "threshold_mad_multiplier": 4.0,
+    "min_intensity_above_local_background": 8.0
+  },
+  "focus_b": {
+    "name": "RhReX_gH2AX_candidate",
+    "channel_index": 0,
+    "label": "RhReX-T1",
+    "tophat_radius_px": 8,
+    "min_area_px": 8,
+    "threshold_mad_multiplier": 4.0,
+    "min_intensity_above_local_background": 8.0
+  },
+  "mode": "3d",
+  "nucleus_strategy": "mip_2d_propagate",
+  "colocalization_distance_um": 0.5,
+  "colocalization_dilation_px": 1,
+  "control_conditions": [],
+  "condition_order": [],
+  "filename": {
+    "regex": "^Well(?P<replicate>\\d+)(?P<condition>(?: 63x)?)(?P<timepoint>)\\.czi$",
+    "condition_group": "condition",
+    "timepoint_group": "timepoint",
+    "replicate_group": "replicate"
+  },
+  "output": {
+    "qc_display_percentile_low": 1.0,
+    "qc_display_percentile_high": 99.8,
+    "positive_thresholds": {}
+  }
+}
