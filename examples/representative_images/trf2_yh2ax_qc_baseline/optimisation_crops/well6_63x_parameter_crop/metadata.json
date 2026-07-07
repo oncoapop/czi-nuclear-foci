@@ -1,0 +1,31 @@
+{
+  "channels": {
+    "0": {
+      "folder": "C0_RhReX_gH2AX",
+      "label": "RhReX / gamma-H2AX candidate channel"
+    },
+    "1": {
+      "folder": "C1_FITC_TRF2",
+      "label": "FITC / TRF2 telomere candidate channel"
+    },
+    "2": {
+      "folder": "C2_DAPI",
+      "label": "DAPI nuclear channel"
+    }
+  },
+  "contains_raw_czi": false,
+  "crop_box_px": {
+    "x0": 146,
+    "x1": 402,
+    "y0": 237,
+    "y1": 493
+  },
+  "notes": "PNG/TIFF assets are 8-bit display-scaled crops, not raw CZI files.",
+  "purpose": "small derived crop for 2D per-Z and 3D segmentation optimisation",
+  "source_file": "Well6 63x.czi",
+  "voxel_size_um": {
+    "x": 0.0990358382936508,
+    "y": 0.0990358382936508,
+    "z": 0.25
+  }
+}
