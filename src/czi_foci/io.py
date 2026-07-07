@@ -25,12 +25,20 @@ class SampleMetadata:
     acquisition_date_folder: str
 
 
-def pixel_size_um(metadata: dict) -> tuple[float, float]:
+def pixel_size_um(metadata: dict, mode: str = "2d") -> tuple[float, float, float]:
     values: dict[str, float] = {}
     for item in metadata.get("scaling") or []:
-        if item.get("Id") in {"X", "Y"} and item.get("Value"):
+        if item.get("Id") in {"X", "Y", "Z"} and item.get("Value"):
             values[item["Id"]] = float(item["Value"]) * 1_000_000.0
-    return values.get("X", float("nan")), values.get("Y", float("nan"))
+
+    z = values.get("Z", float("nan"))
+    y = values.get("Y", float("nan"))
+    x = values.get("X", float("nan"))
+
+    if mode == "3d" and np.isnan(z):
+        raise ValueError("Z voxel spacing is missing from CZI metadata but required for 3D mode. Please supply voxel sizes or use 2D mode.")
+
+    return z, y, x
 
 
 def channel_metadata(inspection: dict, index: int) -> str:
@@ -50,8 +58,8 @@ def inspect_czi(path: Path) -> dict:
     return czi_reader.inspect(path, include_stats=False, preview_dir=None, plane_dir=None)
 
 
-def read_channel_arrays(path: Path, inspection: dict) -> dict[int, np.ndarray]:
-    arrays: dict[int, np.ndarray] = {}
+def read_channel_arrays(path: Path, inspection: dict, mode: str = "2d") -> dict[int, np.ndarray]:
+    arrays_by_channel: dict[int, dict[int, np.ndarray]] = {}
     with path.open("rb") as handle:
         for index, block in enumerate(inspection["subblocks"]):
             if block["compression_code"] != 0:
@@ -60,13 +68,32 @@ def read_channel_arrays(path: Path, inspection: dict) -> dict[int, np.ndarray]:
                 raise ValueError(f"Expected Gray8/Gray16 channel data, found {block['dtype']}: {path}")
             dims = block["dimensions"]
             channel = int(dims.get("C", {}).get("start", index))
+            z = int(dims.get("Z", {}).get("start", 0))
             width = int(dims["X"]["stored_size"])
             height = int(dims["Y"]["stored_size"])
             dtype = np.dtype(block["dtype"]).newbyteorder("<")
             handle.seek(block["data_offset"])
             raw = czi_reader.read_exact(handle, block["data_size"])
-            arrays[channel] = np.frombuffer(raw, dtype=dtype).reshape((height, width))
-    return arrays
+            plane = np.frombuffer(raw, dtype=dtype).reshape((height, width))
+            if channel not in arrays_by_channel:
+                arrays_by_channel[channel] = {}
+            arrays_by_channel[channel][z] = plane
+
+    final_arrays: dict[int, np.ndarray] = {}
+    for channel, z_planes in arrays_by_channel.items():
+        if mode == "2d":
+            # For 2D mode, if there are multiple Z planes, just take the first one or MIP?
+            # Original code would just overwrite the array for the channel, keeping the last read block.
+            # We will use the z=0 or the min z.
+            min_z = min(z_planes.keys())
+            final_arrays[channel] = z_planes[min_z]
+        else:
+            # 3D mode: assemble into a 3D array (Z, Y, X)
+            sorted_z = sorted(z_planes.keys())
+            stack = np.stack([z_planes[z] for z in sorted_z])
+            final_arrays[channel] = stack
+
+    return final_arrays
 
 
 def load_condition_map(path: Path | None) -> dict[str, dict[str, str]]:

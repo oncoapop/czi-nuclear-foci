@@ -55,8 +55,11 @@ class AnalysisConfig:
     control_conditions: list[str] = field(default_factory=list)
     condition_order: list[str] = field(default_factory=list)
     colocalization_dilation_px: int = 1
+    colocalization_distance_um: float = 1.0
     condition_map_csv: str | None = None
     output: OutputConfig = field(default_factory=OutputConfig)
+    mode: str = "2d"
+    nucleus_strategy: str = "mip_2d_propagate"
 
 
 def _require_dict(data: Any, key: str) -> dict[str, Any]:
@@ -82,8 +85,11 @@ def load_config(path: Path) -> AnalysisConfig:
         control_conditions=list(data.get("control_conditions", [])),
         condition_order=list(data.get("condition_order", [])),
         colocalization_dilation_px=int(data.get("colocalization_dilation_px", 1)),
+        colocalization_distance_um=float(data.get("colocalization_distance_um", 1.0)),
         condition_map_csv=data.get("condition_map_csv"),
         output=output,
+        mode=data.get("mode", "2d"),
+        nucleus_strategy=data.get("nucleus_strategy", "mip_2d_propagate"),
     )
     re.compile(config.filename.regex)
     if config.focus_a.name == config.focus_b.name:
