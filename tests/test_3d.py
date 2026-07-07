@@ -70,11 +70,11 @@ class ThreeDTests(unittest.TestCase):
         # distance = sqrt(0.32) ~ 0.565
 
         # Distance = 0.6 um -> should colocalize
-        b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 20.0, 0.2, 0.2, 0.5)
+        b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.9, 0.2, 0.2, 0.5)
         self.assertTrue(1 in coloc_b)
 
         # Distance = 0.5 um -> should not colocalize
-        b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.5, 0.2, 0.2, 0.5)
+        b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.8, 0.2, 0.2, 0.5)
         self.assertFalse(1 in coloc_b)
 
 if __name__ == "__main__":

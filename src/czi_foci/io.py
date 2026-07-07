@@ -85,6 +85,8 @@ def read_channel_arrays(path: Path, inspection: dict, mode: str = "2d") -> dict[
             # For 2D mode, if there are multiple Z planes, just take the first one or MIP?
             # Original code would just overwrite the array for the channel, keeping the last read block.
             # We will use the z=0 or the min z.
+            # By default, to preserve 2D behaviour on single plane data, just take the first plane.
+            # For true Z-stacks processed in 2D mode, this will silently drop planes, but preserves the original behaviour which was not stack-aware.
             min_z = min(z_planes.keys())
             final_arrays[channel] = z_planes[min_z]
         else:

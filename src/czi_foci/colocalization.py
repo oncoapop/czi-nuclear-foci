@@ -10,7 +10,7 @@ def spot_to_nucleus_labels(spot_labels: np.ndarray, nuclei_labels: np.ndarray) -
     mapping: dict[int, int] = {}
     for region in measure.regionprops(spot_labels):
         coords = region.coords
-        values = nuclei_labels[coords[:, 0], coords[:, 1]]
+        values = nuclei_labels[tuple(coords.T)]
         values = values[values > 0]
         mapping[int(region.label)] = int(np.bincount(values.astype(np.int64)).argmax()) if values.size else 0
     return mapping

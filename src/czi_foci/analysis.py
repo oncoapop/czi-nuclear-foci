@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from skimage import measure
 
-from .colocalization import colocalization_calls, spot_to_nucleus_labels
+from .colocalization import colocalization_calls, colocalization_calls_3d, spot_to_nucleus_labels
 from .config import AnalysisConfig, config_to_dict
 from .io import (
     channel_metadata,
@@ -27,7 +27,7 @@ from .reports import (
     threshold_performance,
     write_csv,
 )
-from .segmentation import segment_nuclei, segment_spots
+from .segmentation import segment_nuclei, segment_spots, segment_nuclei_3d, segment_spots_3d
 
 
 def _area_scale(px_um_x: float, px_um_y: float) -> float:
@@ -56,7 +56,8 @@ def _focus_rows(
             "focus_label": label,
             "nucleus_label": focus_to_nucleus.get(label, 0),
             "is_colocalized": "TRUE" if label in coloc_labels else "FALSE",
-                        "focus_area_px": int(region.area),
+                        "focus_area_px": int(region.area) if mode == "2d" else float("nan"),
+            "focus_volume_voxels": int(region.area) if mode == "3d" else float("nan"),
             "focus_area_um2": float(region.area * area_scale) if mode == "2d" else float("nan"),
             "focus_volume_um3": float(region.area * area_scale) if mode == "3d" else float("nan"),
             "focus_mean_intensity": float(region.mean_intensity),
@@ -105,7 +106,8 @@ def _nucleus_rows(
             {
                 **sample,
                 "nucleus_label": label,
-                                "nucleus_area_px": int(region.area),
+                                "nucleus_area_px": int(region.area) if mode == "2d" else float("nan"),
+                "nucleus_volume_voxels": int(region.area) if mode == "3d" else float("nan"),
                 "nucleus_area_um2": float(region.area * area_scale) if mode == "2d" else float("nan"),
                 "nucleus_volume_um3": float(region.area * area_scale) if mode == "3d" else float("nan"),
                 "nucleus_mean_intensity": float(region.mean_intensity),
