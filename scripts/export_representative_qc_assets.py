@@ -169,6 +169,49 @@ def representative_rows(run_dir: Path) -> pd.DataFrame:
     return summary[summary["file_name"].isin(REPRESENTATIVE_FILES)].copy()
 
 
+def validate_required_inputs(data_root: Path) -> None:
+    """Validate all local-only inputs before clearing committed assets."""
+    errors: list[str] = []
+    for run_name, run_dir in RUNS.items():
+        summary_path = run_dir / "image_summary.csv"
+        qc_channels_dir = run_dir / "qc_channels"
+        qc_overlays_dir = run_dir / "qc_overlays"
+        if not summary_path.is_file():
+            errors.append(f"{run_name}: missing {summary_path}")
+            continue
+        if not qc_channels_dir.is_dir():
+            errors.append(f"{run_name}: missing {qc_channels_dir}")
+        if not qc_overlays_dir.is_dir():
+            errors.append(f"{run_name}: missing {qc_overlays_dir}")
+        try:
+            rows = representative_rows(run_dir)
+        except Exception as exc:
+            errors.append(f"{run_name}: could not read representative rows from {summary_path}: {exc}")
+            continue
+        present_files = set(rows["file_name"].astype(str))
+        expected_files = {
+            file_name
+            for file_name in REPRESENTATIVE_FILES
+            if ("63x" in run_name) == ("63x" in file_name)
+        }
+        missing_files = sorted(expected_files - present_files)
+        if missing_files:
+            errors.append(f"{run_name}: missing representative rows for {', '.join(missing_files)}")
+        for row in rows.itertuples(index=False):
+            sample_id = row.sample_id
+            if not list(qc_channels_dir.glob(f"{sample_id}_*.png")):
+                errors.append(f"{run_name}: missing single-channel QC PNGs for {sample_id}")
+            if not list(qc_overlays_dir.glob(f"{sample_id}_*.png")):
+                errors.append(f"{run_name}: missing composite QC PNGs for {sample_id}")
+    for spec in CROP_SPECS:
+        czi_path = data_root / spec.source_file
+        if not czi_path.is_file():
+            errors.append(f"data-root: missing representative CZI source {czi_path}")
+    if errors:
+        joined = "\n- ".join(errors)
+        raise FileNotFoundError(f"Cannot export representative QC assets; required inputs are missing:\n- {joined}")
+
+
 def copy_qc_assets() -> None:
     for run_name, run_dir in RUNS.items():
         dst_root = ASSET_ROOT / "derived_qc" / run_name
@@ -303,6 +346,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    validate_required_inputs(args.data_root)
     reset_dir(ASSET_ROOT)
     copy_qc_assets()
     write_comparison_csv()
