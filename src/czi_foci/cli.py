@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyse.add_argument("--config", type=Path, required=True, help="JSON analysis configuration")
     analyse.add_argument("--output-dir", type=Path, required=True, help="Output directory")
     analyse.add_argument("--qc-title", default="CZI nuclear foci QC")
+    analyse.add_argument("--mode", choices=["2d", "3d"], help="Analysis mode (overrides config)")
     analyse.add_argument("--limit", type=int, help="Process only the first N selected files")
     analyse.add_argument("--overwrite", action="store_true", help="Replace an existing output directory")
     return parser
@@ -32,6 +33,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "analyse":
         config = load_config(args.config)
+
+        # Override mode if provided via CLI
+        if args.mode:
+            import dataclasses
+            config = dataclasses.replace(config, mode=args.mode)
+
         files = selected_files_from_root(args.root, config) if args.root else selected_files_from_manifest(args.manifest)
         if args.limit:
             files = files[: args.limit]

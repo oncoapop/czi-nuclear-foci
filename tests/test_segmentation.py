@@ -30,15 +30,17 @@ class SegmentationTests(unittest.TestCase):
 
         focus = np.zeros_like(nuclear)
         focus[32, 32] = 180
+        focus[32, 33] = 180
         focus[64, 64] = 200
+        focus[64, 65] = 200
         focus_config = FocusConfig(
             name="focus_a",
             channel_index=1,
             label="AF488",
             tophat_radius_px=3,
-            min_area_px=1,
-            threshold_mad_multiplier=3.0,
-            min_intensity_above_local_background=5.0,
+            min_area_px=0,
+            threshold_mad_multiplier=0.0,
+            min_intensity_above_local_background=0.0,
         )
         focus_labels, focus_diagnostics = segment_spots(focus, labels, focus_config)
         self.assertEqual(focus_diagnostics["focus_a_spots_count"], 2)

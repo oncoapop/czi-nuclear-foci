@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from skimage import measure
 
-from .colocalization import colocalization_calls, spot_to_nucleus_labels
+from .colocalization import colocalization_calls, colocalization_calls_3d, spot_to_nucleus_labels
 from .config import AnalysisConfig, config_to_dict
 from .io import (
     channel_metadata,
@@ -27,7 +27,7 @@ from .reports import (
     threshold_performance,
     write_csv,
 )
-from .segmentation import segment_nuclei, segment_spots
+from .segmentation import segment_nuclei, segment_spots, segment_nuclei_3d, segment_spots_3d
 
 
 def _area_scale(px_um_x: float, px_um_y: float) -> float:
@@ -36,6 +36,7 @@ def _area_scale(px_um_x: float, px_um_y: float) -> float:
 
 
 def _focus_rows(
+    mode: str,
     labels: np.ndarray,
     intensity: np.ndarray,
     nuclei_labels: np.ndarray,
@@ -55,12 +56,15 @@ def _focus_rows(
             "focus_label": label,
             "nucleus_label": focus_to_nucleus.get(label, 0),
             "is_colocalized": "TRUE" if label in coloc_labels else "FALSE",
-            "focus_area_px": int(region.area),
-            "focus_area_um2": float(region.area * area_scale),
+                        "focus_area_px": int(region.area) if mode == "2d" else float("nan"),
+            "focus_volume_voxels": int(region.area) if mode == "3d" else float("nan"),
+            "focus_area_um2": float(region.area * area_scale) if mode == "2d" else float("nan"),
+            "focus_volume_um3": float(region.area * area_scale) if mode == "3d" else float("nan"),
             "focus_mean_intensity": float(region.mean_intensity),
             "focus_max_intensity": float(region.max_intensity),
-            "focus_centroid_y_px": float(region.centroid[0]),
-            "focus_centroid_x_px": float(region.centroid[1]),
+            "focus_centroid_z_px": float(region.centroid[0]) if len(region.centroid) == 3 else float("nan"),
+            "focus_centroid_y_px": float(region.centroid[1]) if len(region.centroid) == 3 else float(region.centroid[0]),
+            "focus_centroid_x_px": float(region.centroid[2]) if len(region.centroid) == 3 else float(region.centroid[1]),
         }
         if overlap_map is not None:
             row["overlapping_focus_labels"] = ";".join(str(v) for v in sorted(overlap_map.get(label, [])))
@@ -69,6 +73,7 @@ def _focus_rows(
 
 
 def _nucleus_rows(
+    mode: str,
     nuclei_labels: np.ndarray,
     nuclear: np.ndarray,
     focus_a: np.ndarray,
@@ -101,16 +106,19 @@ def _nucleus_rows(
             {
                 **sample,
                 "nucleus_label": label,
-                "nucleus_area_px": int(region.area),
-                "nucleus_area_um2": float(region.area * area_scale),
+                                "nucleus_area_px": int(region.area) if mode == "2d" else float("nan"),
+                "nucleus_volume_voxels": int(region.area) if mode == "3d" else float("nan"),
+                "nucleus_area_um2": float(region.area * area_scale) if mode == "2d" else float("nan"),
+                "nucleus_volume_um3": float(region.area * area_scale) if mode == "3d" else float("nan"),
                 "nucleus_mean_intensity": float(region.mean_intensity),
                 f"nucleus_mean_{focus_a_name}_intensity": float(focus_a[mask].mean()),
                 f"nucleus_mean_{focus_b_name}_intensity": float(focus_b[mask].mean()),
                 f"{focus_a_name}_count": len(a_by_nucleus.get(label, [])),
                 f"{focus_b_name}_count": len(b_by_nucleus.get(label, [])),
                 f"colocalized_{focus_b_name}_count": len(coloc_b_by_nucleus.get(label, [])),
-                "nucleus_centroid_y_px": float(region.centroid[0]),
-                "nucleus_centroid_x_px": float(region.centroid[1]),
+                "nucleus_centroid_z_px": float(region.centroid[0]) if len(region.centroid) == 3 else float("nan"),
+                "nucleus_centroid_y_px": float(region.centroid[1]) if len(region.centroid) == 3 else float(region.centroid[0]),
+                "nucleus_centroid_x_px": float(region.centroid[2]) if len(region.centroid) == 3 else float(region.centroid[1]),
             }
         )
     return rows
@@ -165,27 +173,50 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
     pair_rows_all: list[dict] = []
     overlay_paths: list[Path] = []
 
+
     for path in files:
         inspection = inspect_czi(path)
-        arrays = read_channel_arrays(path, inspection)
+        arrays = read_channel_arrays(path, inspection, mode=config.mode)
         nuclear = arrays[config.nuclei.channel_index]
         focus_a = arrays[config.focus_a.channel_index]
         focus_b = arrays[config.focus_b.channel_index]
-        px_um_x, px_um_y = pixel_size_um(inspection["metadata"])
-        scale = _area_scale(px_um_x, px_um_y)
+
+        pz, py, px = pixel_size_um(inspection["metadata"], mode=config.mode)
+        px_um_x, px_um_y, px_um_z = px, py, pz
+        scale = px_um_x * px_um_y * px_um_z if config.mode == "3d" else _area_scale(px_um_x, px_um_y)
         metadata = parse_sample_metadata(path, config, condition_map)
         sample = metadata.__dict__
 
-        nuclei_labels, nuclei_diag = segment_nuclei(nuclear, px_um_x, px_um_y, config.nuclei)
-        focus_a_labels, focus_a_diag = segment_spots(focus_a, nuclei_labels, config.focus_a)
-        focus_b_labels, focus_b_diag = segment_spots(focus_b, nuclei_labels, config.focus_b)
-        b_to_a, coloc_b, coloc_a, coloc_b_labels = colocalization_calls(
-            focus_a_labels,
-            focus_b_labels,
-            config.colocalization_dilation_px,
-        )
+        # Optionally add voxel size to sample dict
+        sample["voxel_size_z_um"] = px_um_z
+        sample["voxel_size_y_um"] = px_um_y
+        sample["voxel_size_x_um"] = px_um_x
+
+        if config.mode == "3d":
+            nuclei_labels, nuclei_diag = segment_nuclei_3d(nuclear, px_um_x, px_um_y, px_um_z, config.nuclei, strategy=config.nucleus_strategy)
+            focus_a_labels, focus_a_diag = segment_spots_3d(focus_a, nuclei_labels, px_um_x, px_um_y, px_um_z, config.focus_a)
+            focus_b_labels, focus_b_diag = segment_spots_3d(focus_b, nuclei_labels, px_um_x, px_um_y, px_um_z, config.focus_b)
+            b_to_a, coloc_b, coloc_a, coloc_b_labels = colocalization_calls_3d(
+                focus_a_labels,
+                focus_b_labels,
+                config.colocalization_distance_um,
+                px_um_x,
+                px_um_y,
+                px_um_z,
+            )
+        else:
+            nuclei_labels, nuclei_diag = segment_nuclei(nuclear, px_um_x, px_um_y, config.nuclei)
+            focus_a_labels, focus_a_diag = segment_spots(focus_a, nuclei_labels, config.focus_a)
+            focus_b_labels, focus_b_diag = segment_spots(focus_b, nuclei_labels, config.focus_b)
+            b_to_a, coloc_b, coloc_a, coloc_b_labels = colocalization_calls(
+                focus_a_labels,
+                focus_b_labels,
+                config.colocalization_dilation_px,
+            )
 
         nucleus_rows = _nucleus_rows(
+            config.mode,
+
             nuclei_labels,
             nuclear,
             focus_a,
@@ -199,6 +230,7 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
             scale,
         )
         focus_a_rows = _focus_rows(
+            config.mode,
             focus_a_labels,
             focus_a,
             nuclei_labels,
@@ -208,6 +240,7 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
             area_scale=scale,
         )
         focus_b_rows = _focus_rows(
+            config.mode,
             focus_b_labels,
             focus_b,
             nuclei_labels,
@@ -228,17 +261,38 @@ def analyse_files(files: list[Path], config: AnalysisConfig, config_path: Path, 
             for a_label in sorted(a_labels)
         ]
 
+
         sid = metadata.sample_id
-        save_label_tiff(nuclei_labels, output_dir / "masks" / f"{sid}_nuclei_labels.tif")
-        save_label_tiff(focus_a_labels, output_dir / "masks" / f"{sid}_{config.focus_a.name}_labels.tif")
-        save_label_tiff(focus_b_labels, output_dir / "masks" / f"{sid}_{config.focus_b.name}_labels.tif")
-        save_label_tiff(coloc_b_labels, output_dir / "masks" / f"{sid}_colocalized_{config.focus_b.name}_labels.tif")
+
+        # Make MIPs for 3D masks and arrays for QC
+        if config.mode == "3d":
+            qc_nuclear = nuclear.max(axis=0)
+            qc_focus_a = focus_a.max(axis=0)
+            qc_focus_b = focus_b.max(axis=0)
+            qc_nuclei_labels = nuclei_labels.max(axis=0)
+            qc_focus_a_labels = focus_a_labels.max(axis=0)
+            qc_focus_b_labels = focus_b_labels.max(axis=0)
+            qc_coloc_b_labels = coloc_b_labels.max(axis=0)
+        else:
+            qc_nuclear = nuclear
+            qc_focus_a = focus_a
+            qc_focus_b = focus_b
+            qc_nuclei_labels = nuclei_labels
+            qc_focus_a_labels = focus_a_labels
+            qc_focus_b_labels = focus_b_labels
+            qc_coloc_b_labels = coloc_b_labels
+
+        save_label_tiff(qc_nuclei_labels, output_dir / "masks" / f"{sid}_nuclei_labels.tif")
+        save_label_tiff(qc_focus_a_labels, output_dir / "masks" / f"{sid}_{config.focus_a.name}_labels.tif")
+        save_label_tiff(qc_focus_b_labels, output_dir / "masks" / f"{sid}_{config.focus_b.name}_labels.tif")
+        save_label_tiff(qc_coloc_b_labels, output_dir / "masks" / f"{sid}_colocalized_{config.focus_b.name}_labels.tif")
         overlay_path = output_dir / "qc_overlays" / f"{sid}_qc_overlay.png"
-        save_qc_overlay(nuclear, focus_a, focus_b, nuclei_labels, focus_a_labels, focus_b_labels, coloc_b_labels, overlay_path, config)
-        save_individual_channel_qc(nuclear, nuclei_labels, output_dir / "qc_channels" / f"{sid}_nuclear_qc.png", config.nuclei.label, "nuclei", config)
-        save_individual_channel_qc(focus_a, focus_a_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_a.name}_qc.png", config.focus_a.label, config.focus_a.name, config)
-        save_individual_channel_qc(focus_b, focus_b_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_b.name}_qc.png", config.focus_b.label, config.focus_b.name, config)
+        save_qc_overlay(qc_nuclear, qc_focus_a, qc_focus_b, qc_nuclei_labels, qc_focus_a_labels, qc_focus_b_labels, qc_coloc_b_labels, overlay_path, config)
+        save_individual_channel_qc(qc_nuclear, qc_nuclei_labels, output_dir / "qc_channels" / f"{sid}_nuclear_qc.png", config.nuclei.label, "nuclei", config)
+        save_individual_channel_qc(qc_focus_a, qc_focus_a_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_a.name}_qc.png", config.focus_a.label, config.focus_a.name, config)
+        save_individual_channel_qc(qc_focus_b, qc_focus_b_labels, output_dir / "qc_channels" / f"{sid}_{config.focus_b.name}_qc.png", config.focus_b.label, config.focus_b.name, config)
         overlay_paths.append(overlay_path)
+
 
         image_rows.append(_image_summary(sample, inspection, nucleus_rows, focus_a_rows, focus_b_rows, pair_rows, nuclei_diag, focus_a_diag, focus_b_diag, config))
         nucleus_rows_all.extend(nucleus_rows)

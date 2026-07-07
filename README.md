@@ -75,7 +75,31 @@ czi-foci analyse \
 Use `--overwrite` only when you intentionally want to replace an existing output
 directory.
 
+
+## 3D Z-Stack Analysis
+
+You can optionally enable 3D mode to segment nuclei and spots across CZI z-stacks and compute colocalisation using physical distance (in microns) rather than pixel overlap.
+
+1. Set the mode via CLI using `--mode 3d` (default is `2d`).
+2. Z voxel spacing is read directly from the CZI metadata (an error is raised if missing).
+3. The default nucleus strategy in 3D mode is `mip_2d_propagate` (finds 2D nuclear mask from maximum intensity projection and propagates it through Z). An experimental `volume_3d` strategy is also available via the config.
+4. Physical colocalization threshold can be configured via `colocalization_distance_um` in the JSON config (default is 1.0 um).
+
+Example:
+```zsh
+czi-foci analyse   --root "/Volumes/Backup/TS runs/Time Series V (24+48hr)"   --config configs/three_channel_dna_damage.example.json   --output-dir output/generic_time_series_V_3d   --mode 3d   --qc-title "Time Series V Generic Nuclear Foci QC 3D"
+```
+
+
+
+
+
+> **Note on 2D z-stack handling:** When processing a z-stack file in `2d` mode, the pipeline will default to using the first (lowest index) Z-plane (`z_projection = "first"`). You can explicitly configure this via the `z_projection` parameter in the JSON config (currently only `first` is fully implemented; `min`/`max_mip` may be added in the future).
+
+> **Note on 3D segmentation parameters:** The default parameters for `min_area_px` and `tophat_radius_px` are generally tuned for 20x magnification. If you are processing 63x z-stacks (which have a much larger physical volume per voxel and larger spot sizes in pixels), you **must** configure larger `tophat_radius_px`, `min_area_px`, and adjust threshold multipliers. The default settings may result in excessive false-positive foci candidates at 63x due to noise being over-segmented.
+
 ## Output Files
+
 
 Each run writes:
 
