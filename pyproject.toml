@@ -14,7 +14,7 @@ dependencies = [
   "Pillow",
   "reportlab",
   "scipy",
-  "scikit-image",
+  "scikit-image<0.26.0",
 ]
 
 [project.scripts]
