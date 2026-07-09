@@ -49,7 +49,7 @@ class ThreeDTests(unittest.TestCase):
         a_labels, a_diag = segment_spots_3d(focus_a, labels_3d, 0.2, 0.2, 0.5, focus_a_config)
         self.assertGreaterEqual(a_labels.max(), 1)
 
-        # Focus B at (2, 34, 34)
+        # Focus B is a small 3D object offset from focus A.
         focus_b = np.zeros_like(nucleus)
         focus_b[2:4, 33:38, 33:38] = 200
         labels_3d[2:4, 33:38, 33:38] = 1
@@ -66,16 +66,16 @@ class ThreeDTests(unittest.TestCase):
         self.assertGreaterEqual(b_labels.max(), 1)
 
         # Colocalization (physical distance):
-        # A is at (2, 32, 32) -> physical: 2*0.5, 32*0.2, 32*0.2 = (1.0, 6.4, 6.4)
-        # B is at (2, 34, 34) -> physical: 2*0.5, 34*0.2, 34*0.2 = (1.0, 6.8, 6.8)
-        # distance squared = (0.4)^2 + (0.4)^2 = 0.16 + 0.16 = 0.32
-        # distance = sqrt(0.32) ~ 0.565
+        # Segmented centroids are approximately:
+        # A = (z=2.5, y=32.0, x=32.0)
+        # B = (z=2.5, y=35.0, x=35.0)
+        # Physical centroid distance = sqrt((3*0.2)^2 + (3*0.2)^2) ~= 0.849 um.
 
-        # Distance = 0.9 um -> should colocalize
+        # Distance threshold = 0.9 um -> should colocalize.
         b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.9, 0.2, 0.2, 0.5)
         self.assertTrue(1 in coloc_b)
 
-        # Distance = 0.8 um -> should not colocalize
+        # Distance threshold = 0.8 um -> should not colocalize.
         b_to_a, coloc_b, coloc_a, _ = colocalization_calls_3d(a_labels, b_labels, 0.8, 0.2, 0.2, 0.5)
         self.assertFalse(1 in coloc_b)
 

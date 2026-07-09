@@ -81,7 +81,7 @@ def save_qc_overlay(
     draw.text((12, 31), f"Yellow=nuclei; cyan={config.focus_a.name}; orange={config.focus_b.name}", fill=(255, 255, 255))
 
     if config.mode == "3d":
-        draw.text((12, 50), f"Magenta={config.focus_b.name} within {config.colocalization_distance_um} um of {config.focus_a.name}", fill=(255, 255, 255))
+        draw.text((12, 50), f"Magenta={config.focus_b.name} centroid within {config.colocalization_distance_um} um of {config.focus_a.name} centroid", fill=(255, 255, 255))
     else:
         draw.text((12, 50), f"Magenta={config.focus_b.name} overlapping {config.focus_a.name} after {config.colocalization_dilation_px} px dilation", fill=(255, 255, 255))
 

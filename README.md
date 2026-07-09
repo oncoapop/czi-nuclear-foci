@@ -105,9 +105,10 @@ Add or edit these top-level JSON keys in the experiment config:
   a 2D nuclear mask from a maximum-intensity projection and propagates it across
   Z. `volume_3d` is available for experimental fully volumetric nuclear
   thresholding.
-- `z_projection`: currently only `first` is implemented for 2D mode. This
-  preserves the historical behaviour of using the first Z plane when a z-stack
-  is analysed as 2D.
+- `z_projection`: explicitly defaults to `first` for 2D mode. This preserves
+  the historical behaviour of using the first Z plane when a z-stack is
+  analysed as 2D. This setting does not affect 3D mode, which uses all
+  available Z planes.
 
 ### One-file 3D QC run
 
@@ -154,9 +155,9 @@ czi-foci analyse \
   --qc-title "My subset 3D QC"
 ```
 
-> **Note on 2D z-stack handling:** When processing a z-stack file in `2d` mode, the pipeline will default to using the first (lowest index) Z-plane (`z_projection = "first"`). You can explicitly configure this via the `z_projection` parameter in the JSON config (currently only `first` is fully implemented; `min`/`max_mip` may be added in the future).
+> **Note on 2D z-stack handling:** When processing a z-stack file in `2d` mode, the pipeline explicitly defaults to the first lowest-index Z-plane (`z_projection = "first"`). You can set this in the JSON config so downstream users can see the intended 2D behaviour, but currently only `first` is implemented.
 
-> **Note on 3D segmentation parameters:** The default parameters for `min_area_px` and `tophat_radius_px` may not transfer across magnifications or acquisition settings. Higher magnification z-stacks often require different `tophat_radius_px`, `min_area_px`, and threshold multipliers. Tune parameters on QC overlays before treating counts as biological measurements.
+> **Note on 3D segmentation parameters:** Use separate parameter presets for 20x and 63x acquisitions. The default `min_area_px`, `tophat_radius_px`, and threshold multipliers should not be assumed to transfer across magnifications, voxel sizes, or signal-to-noise regimes. In particular, 63x z-stacks often need larger spot/nucleus size thresholds and separately tuned background/threshold settings. Tune parameters on QC overlays and contact sheets before treating counts as biological measurements.
 
 > **Note on missing Z metadata:** 3D mode requires physical Z spacing in the CZI metadata. Files without Z spacing should be analysed in 2D mode or excluded from a 3D run.
 
