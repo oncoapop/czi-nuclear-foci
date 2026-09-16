@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import czi_reader
+from . import czi_reader, ims_reader
 from .config import AnalysisConfig
 
 
@@ -26,6 +26,10 @@ class SampleMetadata:
 
 
 def pixel_size_um(metadata: dict, mode: str = "2d") -> tuple[float, float, float]:
+    if "has_dataset_info" in metadata:
+        # .ims metadata shape (see ims_reader.inspect_ims).
+        return ims_reader.pixel_size_um_ims(metadata, mode=mode)
+
     values: dict[str, float] = {}
     for item in metadata.get("scaling") or []:
         if item.get("Id") in {"X", "Y", "Z"} and item.get("Value"):
@@ -42,7 +46,10 @@ def pixel_size_um(metadata: dict, mode: str = "2d") -> tuple[float, float, float
 
 
 def channel_metadata(inspection: dict, index: int) -> str:
-    channels = inspection["metadata"].get("channels") or []
+    metadata = inspection["metadata"]
+    if "has_dataset_info" in metadata:
+        return ims_reader.channel_metadata_ims(metadata, index)
+    channels = metadata.get("channels") or []
     if index >= len(channels):
         return f"C{index}"
     channel = channels[index]
@@ -55,10 +62,15 @@ def channel_metadata(inspection: dict, index: int) -> str:
 
 
 def inspect_czi(path: Path) -> dict:
+    if path.suffix.lower() == ".ims":
+        return ims_reader.inspect_ims(path)
     return czi_reader.inspect(path, include_stats=False, preview_dir=None, plane_dir=None)
 
 
 def read_channel_arrays(path: Path, inspection: dict, mode: str = "2d") -> dict[int, np.ndarray]:
+    if path.suffix.lower() == ".ims":
+        return ims_reader.read_channel_arrays_ims(path, inspection, mode=mode)
+
     arrays_by_channel: dict[int, dict[int, np.ndarray]] = {}
     with path.open("rb") as handle:
         for index, block in enumerate(inspection["subblocks"]):
