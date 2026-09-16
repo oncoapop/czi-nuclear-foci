@@ -1,16 +1,46 @@
-# CZI Nuclear Foci Analysis
+# CZI Nuclear Foci Analysis (3-D)
 
-Config-driven local analysis for 3-channel ZEISS CZI images with:
+Config-driven local analysis for 3-channel ZEISS CZI images, with 3-D Z-stack support:
 
-- nuclear segmentation from one channel;
+- nuclear segmentation from one channel, in 2-D or 3-D;
 - independent segmentation of two nuclear DNA-damage focus channels;
-- co-localisation calls between the two focus channels inside nuclei;
+- co-localisation calls between the two focus channels inside nuclei, by pixel
+  overlap in 2-D or physical distance in 3-D;
+- Imaris (`.ims`) reading and stage-0 QC triage;
 - mask TIFFs and channel-specific QC PNGs for manual review;
-- per-image, per-nucleus, per-focus and co-localised-pair CSV outputs;
-- sensitivity, specificity and selectivity tables for simple per-nucleus count cut-offs.
+- per-image, per-nucleus, per-focus and co-localised-pair CSV outputs.
 
 The package is designed for local research workflows. It does not modify raw CZI
 files and does not upload image data.
+
+## Relationship to the 2-D repository
+
+**This repository is the 3-D / Imaris line.** The 2-D analysis - which produced the published
+TS III / TS IV / TS V results - now lives in
+[oncoapop/czi-nuclear-foci-2d](https://github.com/oncoapop/czi-nuclear-foci-2d), tagged
+`v1.0-2d-published`.
+
+The two were split because 3-D segmentation genuinely differs: ball footprints rather than
+disks, volume rather than area thresholds, anisotropic voxels, and physical-distance
+colocalisation. Keeping both in one package would mean `if mode == "3d"` threaded through
+every function.
+
+Consequences worth knowing:
+
+- Both repositories carry their own copy of `czi_reader.py`. A fix to the binary CZI parsing
+  needs porting between them. This is deliberate - a shared package would make provenance
+  worse, since "this repo at this tag produced this figure" is a better answer than tracking
+  a third dependency's version.
+- Both install as `czi_foci`, so they clobber each other in one environment. Use a separate
+  virtualenv per repository. You want that anyway: the 2-D repo is pinned to
+  scikit-image 0.24.0 for bit-exact reproduction, while this one only requires `<0.26.0`.
+- **This repository's reader handles multi-plane files; the 2-D one refuses them.** That is
+  correct, not drift. The 2-D reader keeps one plane per channel, and before a guard was
+  added it silently kept the *last* Z-plane - a 19-plane stack collapsed to its dim terminal
+  plane with no error. Z-stacks belong here.
+
+Datasets that belong to this repository: `TS Runs/TRF2 + yH2AX coloc` (9 files, 3 channels x
+19 Z-planes, 16-bit) and the Andor `.ims` data under `Andor imaging/`.
 
 ## Install
 
